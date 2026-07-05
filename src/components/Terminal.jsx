@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { io } from 'socket.io-client';
-import { Clipboard } from 'lucide-react';
+import { Clipboard, Play } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useModal } from '../contexts/ModalContext';
 
@@ -14,6 +14,7 @@ const Terminal = () => {
   const fitAddonRef = useRef(null);
   const socketRef = useRef(null);
   const { showAlert } = useModal();
+  const [clipboardContent, setClipboardContent] = useState('');
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -77,6 +78,7 @@ const Terminal = () => {
     try {
       const text = await navigator.clipboard.readText();
       if (text && socketRef.current) {
+        setClipboardContent(text);
         // Send the pasted text directly to the backend
         socketRef.current.emit('terminal.keystroke', text);
         // Also explicitly focus the terminal so the user can continue typing
@@ -88,26 +90,65 @@ const Terminal = () => {
     }
   };
 
+  const handleExecute = () => {
+    if (clipboardContent && socketRef.current) {
+      // Send the content with an Enter key to execute
+      socketRef.current.emit('terminal.keystroke', clipboardContent);
+      socketRef.current.emit('terminal.keystroke', '\r');
+      xtermRef.current?.focus();
+    } else {
+      showAlert('No content to execute. Paste something first.', { title: 'Execute Error', icon: 'warning' });
+    }
+  };
+
   return (
     <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
         <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Remote Terminal</span>
-        <button 
-          onClick={handlePaste}
-          title="Paste from Clipboard"
-          style={{ 
-            background: 'none', 
-            border: 'none', 
-            color: 'var(--text-primary)', 
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '12px'
-          }}
-        >
-          <Clipboard size={14} /> Paste
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={handlePaste}
+            title="Paste from Clipboard"
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: 'var(--text-primary)', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '12px',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+          >
+            <Clipboard size={14} /> Paste
+          </button>
+          <button 
+            onClick={handleExecute}
+            title="Execute Pasted Command"
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: 'var(--text-primary)', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '12px',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+          >
+            <Play size={14} /> Execute
+          </button>
+        </div>
       </div>
       <div ref={terminalRef} style={{ flex: 1, overflow: 'hidden' }} />
     </div>
