@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { io } from 'socket.io-client';
-import { Clipboard, Play } from 'lucide-react';
+import { Clipboard, Play, GripVertical } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useModal } from '../contexts/ModalContext';
 
@@ -13,8 +13,11 @@ const Terminal = () => {
   const xtermRef = useRef(null);
   const fitAddonRef = useRef(null);
   const socketRef = useRef(null);
+  const containerRef = useRef(null);
   const { showAlert } = useModal();
   const [clipboardContent, setClipboardContent] = useState('');
+  const [terminalHeight, setTerminalHeight] = useState('30%');
+  const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -91,18 +94,61 @@ const Terminal = () => {
   };
 
   const handleExecute = () => {
-    if (clipboardContent && socketRef.current) {
-      // Send the content with an Enter key to execute
-      socketRef.current.emit('terminal.keystroke', clipboardContent);
+    // Execute button now just sends Enter, it doesn't require clipboardContent
+    // This allows execution of any command already in the terminal
+    if (socketRef.current) {
       socketRef.current.emit('terminal.keystroke', '\r');
       xtermRef.current?.focus();
-    } else {
-      showAlert('No content to execute. Paste something first.', { title: 'Execute Error', icon: 'warning' });
     }
   };
 
+  const handleMouseDown = () => {
+    setIsResizing(true);
+  };
+
+  const handleMouseUp = () => {
+    setIsResizing(false);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isResizing || !containerRef.current) return;
+
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    const newHeight = e.clientY - rect.top;
+    const containerHeight = rect.height;
+
+    // Minimum and maximum height constraints (between 20% and 80% of container)
+    const minHeight = containerHeight * 0.2;
+    const maxHeight = containerHeight * 0.8;
+
+    if (newHeight >= minHeight && newHeight <= maxHeight) {
+      setTerminalHeight(`${(newHeight / containerHeight) * 100}%`);
+    }
+  };
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing]);
+
   return (
-    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div 
+      ref={containerRef}
+      style={{ 
+        height: '100%', 
+        width: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        position: 'relative'
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
         <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Remote Terminal</span>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -129,7 +175,7 @@ const Terminal = () => {
           </button>
           <button 
             onClick={handleExecute}
-            title="Execute Pasted Command"
+            title="Execute Command (Press Enter)"
             style={{ 
               background: 'none', 
               border: 'none', 
@@ -150,7 +196,27 @@ const Terminal = () => {
           </button>
         </div>
       </div>
-      <div ref={terminalRef} style={{ flex: 1, overflow: 'hidden' }} />
+      <div ref={terminalRef} style={{ flex: 1, overflow: 'hidden', height: terminalHeight }} />
+      
+      {/* Resizable Divider */}
+      <div 
+        onMouseDown={handleMouseDown}
+        style={{
+          width: '100%',
+          height: '6px',
+          backgroundColor: 'var(--border-color)',
+          cursor: 'ns-resize',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'background 0.2s',
+          userSelect: 'none'
+        }}
+        onMouseEnter={(e) => e.target.style.backgroundColor = '#58a6ff'}
+        onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--border-color)'}
+      >
+        <GripVertical size={12} color="rgba(255, 255, 255, 0.5)" />
+      </div>
     </div>
   );
 };
