@@ -18,6 +18,7 @@ const Terminal = () => {
   const [clipboardContent, setClipboardContent] = useState('');
   const [terminalHeight, setTerminalHeight] = useState('30%');
   const [isResizing, setIsResizing] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -53,10 +54,12 @@ const Terminal = () => {
     });
 
     socket.on('connect', () => {
+      setIsConnected(true);
       term.writeln('\x1b[32m\x1b[1mConnected to Remote Backend\x1b[0m\r\n');
     });
 
     socket.on('disconnect', () => {
+      setIsConnected(false);
       term.writeln('\r\n\x1b[31m\x1b[1mDisconnected from Remote Backend\x1b[0m\r\n');
     });
 
@@ -80,7 +83,7 @@ const Terminal = () => {
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (text && socketRef.current) {
+      if (text && socketRef.current && isConnected) {
         setClipboardContent(text);
         // Send the pasted text directly to the backend
         socketRef.current.emit('terminal.keystroke', text);
@@ -94,9 +97,9 @@ const Terminal = () => {
   };
 
   const handleExecute = () => {
-    // Execute button now just sends Enter, it doesn't require clipboardContent
-    // This allows execution of any command already in the terminal
-    if (socketRef.current) {
+    // Execute button sends Enter keystroke to execute command in terminal
+    // Only works if socket is connected
+    if (socketRef.current && isConnected) {
       socketRef.current.emit('terminal.keystroke', '\r');
       xtermRef.current?.focus();
     }
@@ -154,43 +157,47 @@ const Terminal = () => {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button 
             onClick={handlePaste}
+            disabled={!isConnected}
             title="Paste from Clipboard"
             style={{ 
               background: 'none', 
               border: 'none', 
-              color: 'var(--text-primary)', 
-              cursor: 'pointer',
+              color: isConnected ? 'var(--text-primary)' : '#666', 
+              cursor: isConnected ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
               fontSize: '12px',
               padding: '4px 8px',
               borderRadius: '4px',
-              transition: 'background 0.2s'
+              transition: 'background 0.2s',
+              opacity: isConnected ? 1 : 0.5
             }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onMouseEnter={(e) => isConnected && (e.target.style.background = 'rgba(255, 255, 255, 0.1)')}
+            onMouseLeave={(e) => isConnected && (e.target.style.background = 'none')}
           >
             <Clipboard size={14} /> Paste
           </button>
           <button 
             onClick={handleExecute}
+            disabled={!isConnected}
             title="Execute Command (Press Enter)"
             style={{ 
               background: 'none', 
               border: 'none', 
-              color: 'var(--text-primary)', 
-              cursor: 'pointer',
+              color: isConnected ? 'var(--text-primary)' : '#666', 
+              cursor: isConnected ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
               fontSize: '12px',
               padding: '4px 8px',
               borderRadius: '4px',
-              transition: 'background 0.2s'
+              transition: 'background 0.2s',
+              opacity: isConnected ? 1 : 0.5
             }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onMouseEnter={(e) => isConnected && (e.target.style.background = 'rgba(255, 255, 255, 0.1)')}
+            onMouseLeave={(e) => isConnected && (e.target.style.background = 'none')}
           >
             <Play size={14} /> Execute
           </button>
