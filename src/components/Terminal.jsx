@@ -196,7 +196,7 @@ const Terminal = () => {
           </button>
         </div>
       </div>
-      <div ref={terminalRef} style={{ flex: 1, overflow: 'hidden', height: terminalHeight }} />
+      <div ref={terminalRef} style={{ flex: 1, overflow: 'auto', height: terminalHeight }} />
       
       {/* Resizable Divider */}
       <div 
