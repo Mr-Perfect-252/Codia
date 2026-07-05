@@ -6,7 +6,7 @@ import { Clipboard } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useModal } from '../contexts/ModalContext';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = '';
 
 const Terminal = () => {
   const terminalRef = useRef(null);

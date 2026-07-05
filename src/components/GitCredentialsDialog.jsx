@@ -12,7 +12,7 @@ const GitCredentialsDialog = ({ onClose }) => {
   useEffect(() => {
     const fetchCredentials = async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/git/credentials');
+        const res = await fetch('/api/git/credentials');
         const data = await res.json();
         if (data.name) setName(data.name);
         if (data.email) setEmail(data.email);
@@ -29,7 +29,7 @@ const GitCredentialsDialog = ({ onClose }) => {
     setLoading(true);
     setStatus('Saving credentials...');
     try {
-      const res = await fetch('http://localhost:3000/api/git/config', {
+      const res = await fetch('/api/git/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, pat, repoUrl })

@@ -10,7 +10,7 @@ const SearchPanel = ({ onFileSelect }) => {
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3000/api/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       setResults(data.results || []);
     } catch (e) {

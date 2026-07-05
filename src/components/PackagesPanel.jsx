@@ -11,7 +11,7 @@ const PackagesPanel = () => {
   const fetchTools = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/system/check');
+      const res = await fetch('/api/system/check');
       const data = await res.json();
       setTools(data);
     } catch (e) {
@@ -33,7 +33,7 @@ const PackagesPanel = () => {
 
     setInstalling(name);
     try {
-      const res = await fetch('http://localhost:3000/api/system/install', {
+      const res = await fetch('/api/system/install', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: name.toLowerCase() })

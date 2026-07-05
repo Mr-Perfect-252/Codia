@@ -11,7 +11,7 @@ const GitPanel = () => {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/git/status');
+      const res = await fetch('/api/git/status');
       const data = await res.json();
       setStatus(data);
     } catch (e) {
@@ -28,7 +28,7 @@ const GitPanel = () => {
     if (!message.trim()) return;
     setLoading(true);
     try {
-      await fetch('http://localhost:3000/api/git/commit', {
+      await fetch('/api/git/commit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message })
@@ -44,7 +44,7 @@ const GitPanel = () => {
   const handlePush = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/git/push', { method: 'POST' });
+      const res = await fetch('/api/git/push', { method: 'POST' });
       const data = await res.json();
       if (data.error) showAlert(data.error, { title: 'Push Failed', icon: 'error' });
       else showAlert('Successfully pushed commits to remote repository.', { title: 'Push Successful', icon: 'success' });
@@ -57,7 +57,7 @@ const GitPanel = () => {
   const handlePull = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/git/pull', { method: 'POST' });
+      const res = await fetch('/api/git/pull', { method: 'POST' });
       const data = await res.json();
       if (data.error) showAlert(data.error, { title: 'Pull Failed', icon: 'error' });
       else {
@@ -75,7 +75,7 @@ const GitPanel = () => {
     if (!confirmed) return;
     setLoading(true);
     try {
-      await fetch('http://localhost:3000/api/git/clear-cache', { method: 'POST' });
+      await fetch('/api/git/clear-cache', { method: 'POST' });
       showAlert('Git cache has been cleared and all files unstaged.', { title: 'Cache Cleared', icon: 'success' });
       fetchStatus();
     } catch (e) {
@@ -89,7 +89,7 @@ const GitPanel = () => {
     if (!confirmed) return;
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/git/undo-commit', { method: 'POST' });
+      const res = await fetch('/api/git/undo-commit', { method: 'POST' });
       const data = await res.json();
       if (data.error) showAlert(data.error, { title: 'Undo Failed', icon: 'error' });
       else {

@@ -26,7 +26,7 @@ const NpmPanel = () => {
   const handleGlobalInstall = async (packageName) => {
     setGlobalInstalling(packageName);
     try {
-      const res = await fetch('http://localhost:3000/api/npm/install-global', {
+      const res = await fetch('/api/npm/install-global', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ packageName })

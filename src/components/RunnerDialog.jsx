@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 import { X, Square } from 'lucide-react';
 import 'xterm/css/xterm.css';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = '';
 
 const RunnerDialog = ({ file, onClose }) => {
   const terminalRef = useRef(null);

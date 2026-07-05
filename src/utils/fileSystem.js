@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3000/api/files';
+const API_BASE = '/api/files';
 
 export const fs = {
   async readFile(path) {
