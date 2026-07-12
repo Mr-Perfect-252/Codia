@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Editor from './components/Editor';
-import Sidebar from './components/Sidebar'; // This is now just the Explorer Panel
+import Sidebar from './components/Sidebar';
 import Terminal from './components/Terminal';
 import ActivityBar from './components/ActivityBar';
 import SearchPanel from './components/SearchPanel';
@@ -9,7 +9,7 @@ import PackagesPanel from './components/PackagesPanel';
 import NpmPanel from './components/NpmPanel';
 import BrowserPanel from './components/BrowserPanel';
 import HtmlPreviewPanel from './components/HtmlPreviewPanel';
-import { Menu } from 'lucide-react';
+import { Menu, Monitor } from 'lucide-react';
 import './index.css';
 
 function App() {
@@ -21,6 +21,7 @@ function App() {
   );
   const [authCode, setAuthCode] = useState('');
   const [authError, setAuthError] = useState(false);
+  const [showFullTerminal, setShowFullTerminal] = useState(false);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -85,51 +86,76 @@ function App() {
 
   return (
     <div className="layout-container" style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-      
-      {/* Activity Bar (VS Code left-most strip) */}
       <div style={{ flexShrink: 0 }}>
         <ActivityBar activeTab={activeTab} onTabSelect={(tab) => {
           setActiveTab(tab);
-          setSidebarOpen(true); // Open sidebar if it was closed on mobile
+          setSidebarOpen(true);
         }} />
       </div>
 
-      {/* Main Layout Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Mobile Top Bar */}
-        <div className="mobile-top-bar" style={{ display: 'none', padding: '10px', background: 'var(--panel-bg)', borderBottom: '1px solid var(--border-color)', alignItems: 'center' }}>
-          <button onClick={toggleSidebar} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)' }}>
-            <Menu />
+        {/* Top Bar - Toggle Button */}
+        <div style={{ 
+          padding: '8px 12px', 
+          background: '#1e1e1e', 
+          borderBottom: '1px solid var(--border-color)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'flex-start',
+          gap: '12px'
+        }}>
+          <button 
+            onClick={() => setShowFullTerminal(!showFullTerminal)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              background: showFullTerminal ? '#0e639c' : 'transparent',
+              color: showFullTerminal ? 'white' : 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px'
+            }}
+          >
+            <Monitor size={16} />
+            {showFullTerminal ? 'Back to Editor' : 'Full Terminal Mode'}
           </button>
-          <span style={{ marginLeft: '10px', fontWeight: 'bold' }}>Codia Mobile</span>
         </div>
 
         <div style={{ display: 'flex', flex: 1, height: '100%', minHeight: 0 }}>
-          {/* Dynamic Sidebar Panel */}
           {activeTab !== 'browser' && activeTab !== 'preview' && (
             <div className={`sidebar glass-panel ${sidebarOpen ? 'open' : ''}`} style={{ borderRight: '1px solid var(--border-color)', backgroundColor: '#1e1e1e', zIndex: 10 }}>
               {renderActivePanel()}
             </div>
           )}
 
-          {/* Main Content Area */}
           <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            {activeTab === 'browser' ? (
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <BrowserPanel />
-              </div>
-            ) : activeTab === 'preview' ? (
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <HtmlPreviewPanel activeFile={activeFile} />
+            {showFullTerminal ? (
+              <div style={{ flex: 1, overflow: 'hidden', background: '#000' }}>
+                <Terminal fullMode={true} />
               </div>
             ) : (
-              <div className="editor-container">
-                <Editor activeFile={activeFile} onPreviewRequest={() => setActiveTab('preview')} />
-              </div>
+              <>
+                {activeTab === 'browser' ? (
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <BrowserPanel />
+                  </div>
+                ) : activeTab === 'preview' ? (
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <HtmlPreviewPanel activeFile={activeFile} />
+                  </div>
+                ) : (
+                  <div className="editor-container">
+                    <Editor activeFile={activeFile} onPreviewRequest={() => setActiveTab('preview')} />
+                  </div>
+                )}
+                <div className="terminal-container" style={{ height: '35%', borderTop: '1px solid var(--border-color)' }}>
+                  <Terminal />
+                </div>
+              </>
             )}
-            <div className="terminal-container">
-              <Terminal />
-            </div>
           </div>
         </div>
       </div>
