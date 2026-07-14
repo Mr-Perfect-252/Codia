@@ -41,7 +41,10 @@ if (fs.existsSync(credsPath)) {
   }
 }
 
-// Terminal with workspace cwd
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+
+// Terminal
 io.on('connection', (socket) => {
   const ptyProcess = pty.spawn(os.platform() === 'win32' ? 'powershell.exe' : 'bash', [], {
     name: 'xterm-color',
@@ -54,7 +57,7 @@ io.on('connection', (socket) => {
   ptyProcess.onData((data) => {
     socket.emit('terminal.incomingData', data);
 
-    // Auto-detect dev server URLs
+    // Auto-detect dev server URLs (npm run dev, vite, etc.)
     const urlMatch = data.match(/https?:\/\/localhost:\d+/);
     if (urlMatch) {
       const url = urlMatch[0];
@@ -71,15 +74,13 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => ptyProcess.kill());
 });
 
-// File + Git endpoints (use WORKSPACE_DIR) — add your existing ones here or keep them
-
+// Git credentials endpoint
 app.get('/api/git/credentials', (req, res) => res.json(GIT_CREDENTIALS));
 
-const PORT = process.env.PORT || 3000;
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+// Add your other endpoints (file system, git commit, push, etc.) here...
 
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`\n🚀 Backend running on http://localhost:${PORT}`);
-  console.log(`Workspace: ${WORKSPACE_DIR}`);
+  console.log(`Workspace folder: ${WORKSPACE_DIR}`);
 });
