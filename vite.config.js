@@ -6,10 +6,18 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig({
   server: {
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      },
       '/socket.io': {
         target: 'http://localhost:3000',
-        ws: true
+        ws: true,
+        changeOrigin: true
+      },
+      '/workspace': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     }
   },
@@ -19,9 +27,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Mobile VS Code',
-        short_name: 'Code',
-        description: 'A mobile code editor progressive web app',
+        name: 'Codia - Mobile IDE',
+        short_name: 'Codia',
+        description: 'A mobile-first web-based IDE with VS Code-like experience',
         theme_color: '#0d1117',
         background_color: '#0d1117',
         display: 'standalone',

@@ -1,22 +1,20 @@
 import React, { useEffect, useRef } from 'react';
-import { Terminal as XTerm } from 'xterm';
+import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { io } from 'socket.io-client';
 import { X, Square } from 'lucide-react';
-import 'xterm/css/xterm.css';
+import '@xterm/xterm/css/xterm.css';
 
-const BACKEND_URL = window.location.origin;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || window.location.origin;
 
 const RunnerDialog = ({ file, onClose }) => {
   const terminalRef = useRef(null);
   const socketRef = useRef(null);
   const xtermRef = useRef(null);
+  const [connected, setConnected] = React.useState(false);
 
   useEffect(() => {
     if (!terminalRef.current) return;
-
-    const socket = io(BACKEND_URL);
-    socketRef.current = socket;
 
     const term = new XTerm({
       theme: {
@@ -24,9 +22,10 @@ const RunnerDialog = ({ file, onClose }) => {
         foreground: '#cccccc',
         cursor: '#58a6ff'
       },
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: '"Cascadia Code", "Fira Code", Consolas, "Courier New", monospace',
       fontSize: 13,
-      cursorBlink: true
+      cursorBlink: true,
+      scrollback: 5000,
     });
 
     const fitAddon = new FitAddon();
@@ -34,24 +33,46 @@ const RunnerDialog = ({ file, onClose }) => {
 
     term.open(terminalRef.current);
     fitAddon.fit();
-    term.write('\x1b[36mConnecting to runner service...\x1b[0m\r\n');
+    term.write('\x1b[36m[Codia Runner]\x1b[0m Connecting to runner service...\r\n');
+
+    const socket = io(BACKEND_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+    });
+    
+    socketRef.current = socket;
 
     socket.on('connect', () => {
+      setConnected(true);
       term.write('\x1b[32mConnected.\x1b[0m\r\n');
+      term.write(`\x1b[33mExecuting:\x1b[0m ${file}\r\n\r\n`);
       // Tell backend to start the script runner ONLY AFTER connected
-      socket.emit('runner.start', file);
+      // Send as object with file property
+      socket.emit('runner.start', { file });
     });
 
     socket.on('connect_error', (err) => {
-      term.write(`\r\n\x1b[31mConnection Error: ${err.message}\x1b[0m\r\n`);
+      term.write(`\r\n\x1b[31m[Error]\x1b[0m Cannot connect to backend: ${err.message}\r\n`);
+      term.write('\x1b[33mMake sure the backend server is running.\x1b[0m\r\n');
+    });
+
+    socket.on('disconnect', () => {
+      setConnected(false);
+      term.write('\r\n\x1b[33m[Disconnected]\x1b[0m Connection lost\r\n');
     });
 
     term.onData((data) => {
-      socket.emit('runner.keystroke', data);
+      if (connected) {
+        socket.emit('runner.keystroke', data);
+      }
     });
 
     socket.on('runner.incomingData', (data) => {
       term.write(data);
+    });
+
+    socket.on('runner.exit', (code) => {
+      term.write(`\r\n\x1b[90m[Process exited with code ${code}]\x1b[0m\r\n`);
     });
 
     xtermRef.current = term;
@@ -60,12 +81,17 @@ const RunnerDialog = ({ file, onClose }) => {
       fitAddon.fit();
     };
 
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(terminalRef.current);
     window.addEventListener('resize', handleResize);
 
     return () => {
+      resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
-      socket.emit('runner.kill'); // Kill process on close
-      socket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.emit('runner.kill'); // Kill process on close
+        socketRef.current.disconnect();
+      }
       term.dispose();
     };
   }, [file]);
@@ -91,11 +117,11 @@ const RunnerDialog = ({ file, onClose }) => {
     }}>
       <div style={{
         width: '90%',
-        maxWidth: '800px',
-        height: '60vh',
+        maxWidth: '900px',
+        height: '70vh',
         backgroundColor: '#181818',
         borderRadius: '8px',
-        border: '1px solid var(--border-color)',
+        border: '1px solid #333',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
@@ -108,10 +134,18 @@ const RunnerDialog = ({ file, onClose }) => {
           alignItems: 'center',
           padding: '10px 15px',
           backgroundColor: '#252526',
-          borderBottom: '1px solid var(--border-color)'
+          borderBottom: '1px solid #333'
         }}>
           <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#cccccc' }}>
-            Code Runner: {file}
+            <span style={{ 
+              display: 'inline-block',
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: connected ? '#4caf50' : '#f44336',
+              marginRight: '8px'
+            }} />
+            Runner: {file}
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button 

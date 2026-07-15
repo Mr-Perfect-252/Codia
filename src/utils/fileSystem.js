@@ -1,7 +1,11 @@
+// File system API utility - connects to backend server
+
 const API_BASE = '/api/files';
 
 export const fs = {
-  async readFile(path) {
+  async readFile(filePath) {
+    // Ensure path starts with /
+    const path = filePath.startsWith('/') ? filePath : '/' + filePath;
     const res = await fetch(`${API_BASE}/read?path=${encodeURIComponent(path)}`);
     if (!res.ok) {
       const errorData = await res.json();
@@ -11,7 +15,9 @@ export const fs = {
     return data.content;
   },
   
-  async writeFile(path, content) {
+  async writeFile(filePath, content) {
+    // Ensure path starts with /
+    const path = filePath.startsWith('/') ? filePath : '/' + filePath;
     const res = await fetch(`${API_BASE}/write`, {
       method: 'POST',
       headers: {
@@ -26,7 +32,9 @@ export const fs = {
     }
   },
 
-  async createFolder(path) {
+  async createFolder(filePath) {
+    // Ensure path starts with /
+    const path = filePath.startsWith('/') ? filePath : '/' + filePath;
     const res = await fetch(`${API_BASE}/mkdir`, {
       method: 'POST',
       headers: {
@@ -51,7 +59,9 @@ export const fs = {
     return files;
   },
   
-  async deleteFile(path) {
+  async deleteFile(filePath) {
+    // Ensure path starts with /
+    const path = filePath.startsWith('/') ? filePath : '/' + filePath;
     const res = await fetch(`${API_BASE}/delete?path=${encodeURIComponent(path)}`, {
       method: 'DELETE'
     });
