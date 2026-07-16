@@ -70,5 +70,34 @@ export const fs = {
       const errorData = await res.json();
       throw new Error(errorData.error || `Failed to delete file/folder: ${path}`);
     }
+  },
+
+  async uploadFile(file, destination = '') {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (destination) {
+      formData.append('destination', destination.startsWith('/') ? destination : '/' + destination);
+    }
+    
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || 'Failed to upload file');
+    }
+    
+    return await res.json();
+  },
+
+  async checkConnection() {
+    try {
+      const res = await fetch(API_BASE);
+      return res.ok;
+    } catch (e) {
+      return false;
+    }
   }
 };

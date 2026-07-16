@@ -7,6 +7,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { exec, spawn } = require('child_process');
 const crypto = require('crypto');
+const multer = require('multer');
 
 const app = express();
 const WORKSPACE_DIR = path.join(process.cwd(), 'workspace');
@@ -15,6 +16,29 @@ const CREDENTIALS_FILE = path.join(process.cwd(), '.git-credentials.json');
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Multer configuration for file uploads
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const destDir = req.body.destination || '';
+    const fullDestPath = path.join(WORKSPACE_DIR, destDir);
+    try {
+      await fs.mkdir(fullDestPath, { recursive: true });
+      cb(null, fullDestPath);
+    } catch (e) {
+      cb(e);
+    }
+  },
+  filename: (req, file, cb) => {
+    // Preserve original filename
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
 
 // Serve workspace files with proper MIME types and CORS
 app.use('/workspace', (req, res, next) => {
@@ -107,6 +131,25 @@ app.post('/api/files/mkdir', async (req, res) => {
     
     await fs.mkdir(fullPath, { recursive: true });
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Upload file - POST /api/files/upload
+app.post('/api/files/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const uploadedPath = '/' + path.relative(WORKSPACE_DIR, req.file.path);
+    res.json({ 
+      success: true, 
+      filename: req.file.originalname,
+      path: uploadedPath,
+      size: req.file.size
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

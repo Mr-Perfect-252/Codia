@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { fs } from '../utils/fileSystem';
-import { Plus, FolderPlus, Trash2, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, FolderPlus, Trash2, RefreshCw, ChevronRight, ChevronDown, Upload, X } from 'lucide-react';
 import { DiJavascript1, DiPython, DiHtml5, DiCss3, DiReact, DiSass, DiGit, DiNpm, DiMarkdown, DiJava, DiRuby, DiPhp, DiGo, DiRust, DiSwift, DiDatabase } from 'react-icons/di';
 import { SiTypescript, SiVite, SiPrettier, SiEslint, SiTailwindcss } from 'react-icons/si';
 import { VscFile, VscJson, VscSettingsGear, VscFileMedia, VscTerminal } from 'react-icons/vsc';
@@ -165,7 +165,13 @@ const Sidebar = ({ onFileSelect }) => {
   const [newInputName, setNewInputName] = useState('');
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadDestination, setUploadDestination] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [error, setError] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
+  const fileInputRef = useRef(null);
   const { showAlert, showConfirm } = useModal();
 
   useEffect(() => {
@@ -178,9 +184,11 @@ const Sidebar = ({ onFileSelect }) => {
       const tree = buildFileTree(allFiles);
       setFileTree(tree);
       setError(null);
+      setErrorDetails(null);
     } catch (err) {
-      console.error(err);
-      setError('Failed to connect to backend.');
+      console.error('Connection error:', err);
+      setError('Failed to connect to backend');
+      setErrorDetails('Make sure the backend server is running on port 3000');
     }
   };
 
@@ -192,15 +200,51 @@ const Sidebar = ({ onFileSelect }) => {
     try {
       if (isCreatingFolder) {
         await fs.createFolder(path);
+        showAlert(`Folder "${newInputName}" created successfully`, { title: 'Success' });
       } else {
         await fs.writeFile(path, '// New file\n');
+        showAlert(`File "${newInputName}" created successfully`, { title: 'Success' });
       }
       setNewInputName('');
       setIsCreatingFile(false);
       setIsCreatingFolder(false);
       loadFiles();
     } catch (err) {
-      showAlert(`Error creating ${isCreatingFolder ? 'folder' : 'file'}`, { title: 'Error' });
+      showAlert(`Error: ${err.message}`, { title: 'Error' });
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    setIsUploading(true);
+    setUploadedFiles([]);
+    const results = [];
+    
+    for (const file of files) {
+      try {
+        const result = await fs.uploadFile(file, uploadDestination);
+        results.push({ name: file.name, success: true, path: result.path });
+      } catch (err) {
+        results.push({ name: file.name, success: false, error: err.message });
+      }
+    }
+    
+    setUploadedFiles(results);
+    setIsUploading(false);
+    
+    if (results.every(r => r.success)) {
+      loadFiles();
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -216,6 +260,12 @@ const Sidebar = ({ onFileSelect }) => {
     }
   };
 
+  const cancelCreate = () => {
+    setIsCreatingFile(false);
+    setIsCreatingFolder(false);
+    setNewInputName('');
+  };
+
   const rootNodes = Object.values(fileTree).sort((a, b) => {
     if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
     return a.isDirectory ? -1 : 1;
@@ -229,10 +279,13 @@ const Sidebar = ({ onFileSelect }) => {
           <button onClick={loadFiles} title="Refresh" style={{ background: 'none', border: 'none', color: '#cccccc', cursor: 'pointer' }}>
             <RefreshCw size={14} />
           </button>
-          <button onClick={() => { setIsCreatingFile(true); setIsCreatingFolder(false); }} title="New File" style={{ background: 'none', border: 'none', color: '#cccccc', cursor: 'pointer' }}>
+          <button onClick={() => setShowUploadModal(true)} title="Upload Files" style={{ background: 'none', border: 'none', color: '#cccccc', cursor: 'pointer' }}>
+            <Upload size={14} />
+          </button>
+          <button onClick={() => { setIsCreatingFile(true); setIsCreatingFolder(false); setNewInputName(''); }} title="New File" style={{ background: 'none', border: 'none', color: isCreatingFile ? '#0e639c' : '#cccccc', cursor: 'pointer' }}>
             <Plus size={16} />
           </button>
-          <button onClick={() => { setIsCreatingFolder(true); setIsCreatingFile(false); }} title="New Folder" style={{ background: 'none', border: 'none', color: '#cccccc', cursor: 'pointer' }}>
+          <button onClick={() => { setIsCreatingFolder(true); setIsCreatingFile(false); setNewInputName(''); }} title="New Folder" style={{ background: 'none', border: 'none', color: isCreatingFolder ? '#0e639c' : '#cccccc', cursor: 'pointer' }}>
             <FolderPlus size={16} />
           </button>
         </div>
@@ -244,19 +297,91 @@ const Sidebar = ({ onFileSelect }) => {
         </div>
       </div>
 
-      {error && <div style={{ color: '#f85149', fontSize: '12px', padding: '0 15px', marginBottom: '10px' }}>{error}</div>}
+      {error && (
+        <div style={{ 
+          color: '#f85149', 
+          fontSize: '12px', 
+          padding: '12px 15px', 
+          marginBottom: '10px',
+          background: 'rgba(248, 81, 73, 0.1)',
+          borderRadius: '4px',
+          margin: '0 15px 10px'
+        }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{error}</div>
+          {errorDetails && <div style={{ color: '#858585', fontSize: '11px' }}>{errorDetails}</div>}
+          <button 
+            onClick={loadFiles}
+            style={{
+              marginTop: '8px',
+              padding: '4px 12px',
+              background: '#0e639c',
+              border: 'none',
+              color: 'white',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px'
+            }}
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
 
       {(isCreatingFile || isCreatingFolder) && (
-        <form onSubmit={handleCreate} style={{ padding: '0 15px', marginBottom: '10px' }}>
-          <input 
-            autoFocus
-            type="text" 
-            placeholder={isCreatingFolder ? "folderName" : "filename.js"}
-            value={newInputName}
-            onChange={(e) => setNewInputName(e.target.value)}
-            style={{ width: '100%', padding: '4px 6px', background: '#3c3c3c', border: '1px solid #007fd4', color: 'white', borderRadius: '2px', outline: 'none', fontSize: '13px' }}
-          />
-        </form>
+        <div style={{ padding: '0 15px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '11px', color: '#858585', marginBottom: '6px' }}>
+            {isCreatingFile ? 'Create New File' : 'Create New Folder'}
+          </div>
+          <form onSubmit={handleCreate} style={{ display: 'flex', gap: '6px' }}>
+            <input 
+              autoFocus
+              type="text" 
+              placeholder={isCreatingFolder ? "folderName" : "filename.js"}
+              value={newInputName}
+              onChange={(e) => setNewInputName(e.target.value)}
+              style={{ 
+                flex: 1,
+                padding: '6px 8px', 
+                background: '#3c3c3c', 
+                border: '1px solid #007fd4', 
+                color: 'white', 
+                borderRadius: '4px', 
+                outline: 'none', 
+                fontSize: '13px' 
+              }}
+            />
+            <button 
+              type="button"
+              onClick={cancelCreate}
+              style={{
+                padding: '6px 8px',
+                background: '#3c3c3c',
+                border: '1px solid #555',
+                color: '#ccc',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+            >
+              <X size={14} />
+            </button>
+            <button 
+              type="submit"
+              style={{
+                padding: '6px 12px',
+                background: '#0e639c',
+                border: 'none',
+                color: 'white',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              Create
+            </button>
+          </form>
+        </div>
       )}
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -273,6 +398,115 @@ const Sidebar = ({ onFileSelect }) => {
           ))
         )}
       </div>
+
+      {/* Hidden file input for uploads */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        multiple
+        style={{ display: 'none' }}
+      />
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#1e1e1e',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            padding: '20px',
+            width: '400px',
+            maxWidth: '90%'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: '#ccc', fontSize: '16px' }}>Upload Files</h3>
+              <button 
+                onClick={() => { setShowUploadModal(false); setUploadedFiles([]); }}
+                style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', color: '#888', fontSize: '12px', marginBottom: '4px' }}>
+                Destination folder (optional)
+              </label>
+              <input
+                type="text"
+                placeholder="/ or /folderName"
+                value={uploadDestination}
+                onChange={(e) => setUploadDestination(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  background: '#2d2d2d',
+                  border: '1px solid #444',
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontSize: '13px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <button
+              onClick={handleUploadClick}
+              disabled={isUploading}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                border: '2px dashed #444',
+                borderRadius: '8px',
+                color: '#888',
+                cursor: 'pointer',
+                fontSize: '13px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Upload size={24} />
+              {isUploading ? 'Uploading...' : 'Click to select files or drag & drop'}
+            </button>
+
+            {uploadedFiles.length > 0 && (
+              <div style={{ marginTop: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Upload Results:</div>
+                {uploadedFiles.map((file, idx) => (
+                  <div 
+                    key={idx}
+                    style={{
+                      padding: '8px',
+                      background: file.success ? 'rgba(46, 160, 67, 0.2)' : 'rgba(248, 81, 73, 0.2)',
+                      borderRadius: '4px',
+                      marginBottom: '4px',
+                      fontSize: '12px',
+                      color: file.success ? '#3fb950' : '#f85149'
+                    }}
+                  >
+                    {file.name}: {file.success ? `Uploaded to ${file.path}` : file.error}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
