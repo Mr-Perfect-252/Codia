@@ -76,7 +76,7 @@ const getFileIcon = (filename) => {
   return <VscFile size={14} color="#cccccc" />;
 };
 
-const FileTreeNode = ({ node, onFileSelect, onDelete, level = 0 }) => {
+const FileTreeNode = ({ node, onFileSelect, onDelete, onContextMenu, level = 0 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -94,6 +94,14 @@ const FileTreeNode = ({ node, onFileSelect, onDelete, level = 0 }) => {
     }
   };
 
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (node.isDirectory) {
+      onContextMenu(e, node);
+    }
+  };
+
   const childrenNodes = Object.values(node.children).sort((a, b) => {
     if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
     return a.isDirectory ? -1 : 1;
@@ -103,6 +111,7 @@ const FileTreeNode = ({ node, onFileSelect, onDelete, level = 0 }) => {
     <div>
       <div 
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={{ 
@@ -150,7 +159,8 @@ const FileTreeNode = ({ node, onFileSelect, onDelete, level = 0 }) => {
               key={child.path} 
               node={child} 
               onFileSelect={onFileSelect} 
-              onDelete={onDelete} 
+              onDelete={onDelete}
+              onContextMenu={onContextMenu}
               level={level + 1} 
             />
           ))}
@@ -165,18 +175,29 @@ const Sidebar = ({ onFileSelect }) => {
   const [newInputName, setNewInputName] = useState('');
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [createTargetPath, setCreateTargetPath] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadDestination, setUploadDestination] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [error, setError] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
   const fileInputRef = useRef(null);
   const { showAlert, showConfirm } = useModal();
 
   useEffect(() => {
     loadFiles();
   }, []);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
 
   const loadFiles = async () => {
     try {
@@ -196,7 +217,10 @@ const Sidebar = ({ onFileSelect }) => {
     e.preventDefault();
     if (!newInputName.trim()) return;
     
-    const path = `/${newInputName}`;
+    const targetPath = createTargetPath || '';
+    const basePath = targetPath === '/' ? '' : targetPath;
+    const path = `${basePath}/${newInputName}`.replace(/\/+/g, '/');
+    
     try {
       if (isCreatingFolder) {
         await fs.createFolder(path);
@@ -208,10 +232,39 @@ const Sidebar = ({ onFileSelect }) => {
       setNewInputName('');
       setIsCreatingFile(false);
       setIsCreatingFolder(false);
+      setCreateTargetPath('');
       loadFiles();
     } catch (err) {
       showAlert(`Error: ${err.message}`, { title: 'Error' });
     }
+  };
+
+  const handleContextMenu = (e, node) => {
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      node: node
+    });
+  };
+
+  const handleUploadToFolder = (folderPath) => {
+    setUploadDestination(folderPath);
+    setShowUploadModal(true);
+    setContextMenu(null);
+  };
+
+  const handleCreateInFolder = (folderPath, type) => {
+    setCreateTargetPath(folderPath);
+    setUploadDestination(folderPath);
+    if (type === 'folder') {
+      setIsCreatingFolder(true);
+      setIsCreatingFile(false);
+    } else {
+      setIsCreatingFile(true);
+      setIsCreatingFolder(false);
+    }
+    setNewInputName('');
+    setContextMenu(null);
   };
 
   const handleUploadClick = () => {
@@ -264,6 +317,7 @@ const Sidebar = ({ onFileSelect }) => {
     setIsCreatingFile(false);
     setIsCreatingFolder(false);
     setNewInputName('');
+    setCreateTargetPath('');
   };
 
   const rootNodes = Object.values(fileTree).sort((a, b) => {
@@ -331,6 +385,11 @@ const Sidebar = ({ onFileSelect }) => {
         <div style={{ padding: '0 15px', marginBottom: '10px' }}>
           <div style={{ fontSize: '11px', color: '#858585', marginBottom: '6px' }}>
             {isCreatingFile ? 'Create New File' : 'Create New Folder'}
+            {createTargetPath && (
+              <span style={{ color: '#0e639c', marginLeft: '8px' }}>
+                in {createTargetPath}
+              </span>
+            )}
           </div>
           <form onSubmit={handleCreate} style={{ display: 'flex', gap: '6px' }}>
             <input 
@@ -393,11 +452,100 @@ const Sidebar = ({ onFileSelect }) => {
               key={node.path} 
               node={node} 
               onFileSelect={onFileSelect} 
-              onDelete={handleDelete} 
+              onDelete={handleDelete}
+              onContextMenu={handleContextMenu}
             />
           ))
         )}
       </div>
+
+      {/* Context Menu for Folders */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            background: '#2d2d2d',
+            border: '1px solid #444',
+            borderRadius: '6px',
+            padding: '6px 0',
+            minWidth: '180px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            zIndex: 1000
+          }}
+        >
+          <div style={{ 
+            padding: '8px 12px', 
+            fontSize: '12px', 
+            color: '#888',
+            borderBottom: '1px solid #444',
+            marginBottom: '4px'
+          }}>
+            📁 {contextMenu.node.name}
+          </div>
+          <button
+            onClick={() => handleUploadToFolder(contextMenu.node.path)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              background: 'none',
+              border: 'none',
+              color: '#ccc',
+              fontSize: '13px',
+              textAlign: 'left',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#3c3c3c'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+          >
+            <Upload size={14} /> Upload Files Here
+          </button>
+          <button
+            onClick={() => handleCreateInFolder(contextMenu.node.path, 'file')}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              background: 'none',
+              border: 'none',
+              color: '#ccc',
+              fontSize: '13px',
+              textAlign: 'left',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#3c3c3c'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+          >
+            <Plus size={14} /> New File
+          </button>
+          <button
+            onClick={() => handleCreateInFolder(contextMenu.node.path, 'folder')}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              background: 'none',
+              border: 'none',
+              color: '#ccc',
+              fontSize: '13px',
+              textAlign: 'left',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#3c3c3c'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+          >
+            <FolderPlus size={14} /> New Folder
+          </button>
+        </div>
+      )}
 
       {/* Hidden file input for uploads */}
       <input
