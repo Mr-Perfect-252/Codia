@@ -209,7 +209,7 @@ const Sidebar = ({ onFileSelect }) => {
     } catch (err) {
       console.error('Connection error:', err);
       setError('Failed to connect to backend');
-      setErrorDetails('Make sure the backend server is running on port 3000');
+      setErrorDetails('Make sure the backend server is running on port 10000');
     }
   };
 
